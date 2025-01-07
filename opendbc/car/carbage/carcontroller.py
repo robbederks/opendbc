@@ -78,6 +78,16 @@ def create_other_command(packer, cancel, counter):
   values["CHECKSUM"] = tesla_checksum(0x202, data)
   return packer.make_can_msg("OtherControl", 0, values)
 
+def create_steer_angle_sensor(packer, angle, frac, rate):
+  values = {
+    "STEER_ANGLE": angle,
+    "STEER_FRACTION": frac,
+    "STEER_RATE": rate,
+  }
+  data = packer.make_can_msg("STEER_ANGLE_SENSOR", 0, values)[1]
+  values["CHECKSUM"] = toyota_checksum(0x25, data)
+  return packer.make_can_msg("STEER_ANGLE_SENSOR", 0, values)
+
 class CarController(CarControllerBase):
   def __init__(self, dbc_names, CP):
     super().__init__(dbc_names, CP)
@@ -106,6 +116,9 @@ class CarController(CarControllerBase):
 
     if len(CC.orientationNED) == 3:
       self.pitch.update(CC.orientationNED[1])
+
+    # HACK: negative steer angle
+    can_sends.append(create_steer_angle_sensor(self.packer, -1 * CS.steer_angle, -1 * CS.steer_fraction, CS.out.steeringRateDeg))
 
     # Lateral
     lat_active = CC.latActive and abs(CS.out.steeringTorque) < MAX_USER_TORQUE

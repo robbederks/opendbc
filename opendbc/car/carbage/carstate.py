@@ -19,8 +19,12 @@ class CarState(CarStateBase):
     self.angle_offset = FirstOrderFilter(None, 60.0, DT_CTRL, initialized=False)
     self.rpm = FirstOrderFilter(0, 1.0, DT_CTRL)
 
+    self.steer_angle = None
+    self.steer_fraction = None
+
   def update(self, can_parsers) -> structs.CarState:
     cp_cbp = can_parsers[Bus.main]
+    cp_rdr = can_parsers[Bus.radar]
     cp_ibst = can_parsers[Bus.adas]
     ret = structs.CarState()
 
@@ -31,8 +35,11 @@ class CarState(CarStateBase):
 
     ret.gearShifter = GearShifter.drive
 
-    ret.steeringAngleDeg = -1 * (cp_cbp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"] + cp_cbp.vl["STEER_ANGLE_SENSOR"]["STEER_FRACTION"])
-    ret.steeringRateDeg = -1 * cp_cbp.vl["STEER_ANGLE_SENSOR"]["STEER_RATE"]
+    self.steer_angle = cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
+    self.steer_fraction = cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_FRACTION"]
+
+    ret.steeringAngleDeg = -1 * (self.steer_angle + self.steer_fraction)
+    ret.steeringRateDeg = -1 * cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_RATE"]
     ret.steeringTorque = cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
     ret.steeringTorqueEps = cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_EPS"] * 88.0
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
@@ -84,6 +91,9 @@ class CarState(CarStateBase):
       ("CBP_status", 10),
       ("EPS_STATUS", 25),
       ("STEER_TORQUE_SENSOR", 50),
+    ]
+
+    steer_sensor_msgs = [
       ("STEER_ANGLE_SENSOR", 80),
     ]
 
@@ -94,5 +104,6 @@ class CarState(CarStateBase):
 
     return {
       Bus.main: CANParser(DBC[CP.carFingerprint][Bus.main], main_msgs, 0),
+      Bus.radar: CANParser(DBC[CP.carFingerprint][Bus.main], steer_sensor_msgs, 1)
       Bus.adas: CANParser(DBC[CP.carFingerprint][Bus.adas], ibst_msgs, 2)
     }
