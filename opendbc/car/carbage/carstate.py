@@ -1,7 +1,7 @@
 import copy
 from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
-from opendbc.car import Bus, DT_CTRL, structs
+from opendbc.car import Bus, DT_CTRL, structs, CanSignalRateCalculator
 from opendbc.car.common.filter_simple import FirstOrderFilter
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.carbage.values import DBC, STEER_THRESHOLD
@@ -16,11 +16,15 @@ class CarState(CarStateBase):
     super().__init__(CP)
 
     self.accurate_steer_angle_seen = False
-    self.angle_offset = FirstOrderFilter(None, 60.0, DT_CTRL, initialized=False)
     self.rpm = FirstOrderFilter(0, 1.0, DT_CTRL)
+    self.angle_rate_calculator = CanSignalRateCalculator(50)
 
     self.steer_angle = None
     self.steer_fraction = None
+    self.steer_rate = None
+
+    self.prev_steer_torque_sensor = None
+    self.steer_torque_counter = 0
 
   def update(self, can_parsers) -> structs.CarState:
     cp_cbp = can_parsers[Bus.main]
@@ -37,27 +41,26 @@ class CarState(CarStateBase):
 
     self.steer_angle = cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
     self.steer_fraction = cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_FRACTION"]
+    self.steer_rate = cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_RATE"]
 
     ret.steeringAngleDeg = -1 * (self.steer_angle + self.steer_fraction)
-    ret.steeringRateDeg = -1 * cp_rdr.vl["STEER_ANGLE_SENSOR"]["STEER_RATE"]
+    ret.steeringRateDeg = -1 * self.steer_rate
     ret.steeringTorque = cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
     ret.steeringTorqueEps = cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_EPS"] * 88.0
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
 
-    #torque_sensor_angle_deg = cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_ANGLE"]
+    torque_sensor_angle_deg = cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_ANGLE"]
+    if cp_cbp.vl["STEER_TORQUE_SENSOR"] != self.prev_steer_torque_sensor:
+      self.steer_torque_counter = (self.steer_torque_counter + 1) % 16
+    self.prev_steer_torque_sensor = copy.copy(cp_cbp.vl["STEER_TORQUE_SENSOR"])
 
     # On some cars, the angle measurement is non-zero while initializing
-    #if abs(torque_sensor_angle_deg) > 1e-3 and not bool(cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_ANGLE_INITIALIZING"]):
-    #  self.accurate_steer_angle_seen = True
+    if abs(torque_sensor_angle_deg) > 1e-3 and not bool(cp_cbp.vl["STEER_TORQUE_SENSOR"]["STEER_ANGLE_INITIALIZING"]):
+     self.accurate_steer_angle_seen = True
 
-    #if self.accurate_steer_angle_seen:
-      # Offset seems to be invalid for large steering angles and high angle rates
-    #  if abs(ret.steeringAngleDeg) < 90 and abs(ret.steeringRateDeg) < 100 and cp_cbp.can_valid:
-    #    self.angle_offset.update(torque_sensor_angle_deg - ret.steeringAngleDeg)
-
-    #  if self.angle_offset.initialized:
-    #    ret.steeringAngleOffsetDeg = self.angle_offset.x
-    #    ret.steeringAngleDeg = torque_sensor_angle_deg - self.angle_offset.x
+    if self.accurate_steer_angle_seen:
+      ret.steeringAngleDeg = torque_sensor_angle_deg
+      ret.steeringRateDeg = self.angle_rate_calculator.update(ret.steeringAngleDeg, self.steer_torque_counter)
 
     ret.steerFaultTemporary = cp_cbp.vl["EPS_STATUS"]["LKA_STATE"] in TEMP_STEER_FAULTS
     ret.steerFaultPermanent = cp_cbp.vl["EPS_STATUS"]["LKA_STATE"] in PERM_STEER_FAULTS

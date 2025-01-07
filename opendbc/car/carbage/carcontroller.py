@@ -118,7 +118,8 @@ class CarController(CarControllerBase):
       self.pitch.update(CC.orientationNED[1])
 
     # HACK: negative steer angle
-    can_sends.append(create_steer_angle_sensor(self.packer, -1 * CS.steer_angle, -1 * CS.steer_fraction, CS.out.steeringRateDeg))
+    if CS.steer_angle is not None:
+      can_sends.append(create_steer_angle_sensor(self.packer, -1 * CS.steer_angle, -1 * CS.steer_fraction, -1 * CS.steer_rate))
 
     # Lateral
     lat_active = CC.latActive and abs(CS.out.steeringTorque) < MAX_USER_TORQUE
