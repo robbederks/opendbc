@@ -155,7 +155,7 @@ class CarController(CarControllerBase):
       pcm_accel_cmd = self.long_pid.update(error_future, error_rate=self.error_rate.x,
                                             speed=CS.out.vEgo,
                                             feedforward=ff,
-                                            override=CS.gasPressed)
+                                            override=CS.out.gasPressed)
     else:
       self.long_pid.reset()
       self.error_rate.x = 0.0
@@ -166,7 +166,7 @@ class CarController(CarControllerBase):
     servo_val = interp(max(0, pcm_accel_cmd), [0, self.params.ACCEL_MAX], [SERVO_MIN, SERVO_MAX])
     brake_val = interp(min(pcm_accel_cmd, 0), [self.params.ACCEL_MIN, 0], [BRAKE_MAX, BRAKE_MIN])
 
-    if CS.clutchPressed:
+    if CS.out.clutchPressed:
       servo_val = SERVO_MIN
 
     can_sends.append(create_servo_command(self.packer, servo_val, self.frame))

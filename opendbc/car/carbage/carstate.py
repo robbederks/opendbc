@@ -82,8 +82,8 @@ class CarState(CarStateBase):
 
     # TODO: do we need this?
     ret.gas = 0
-    ret.gasPressed = cp_cbp.vl["CBP_status"]["GAS_PRESSED"]
-    ret.clutchPressed = cp_cbp.vl["CBP_status"]["CLUTCH_PRESSED"]
+    ret.gasPressed = cp_cbp.vl["CBP_status"]["GAS_PRESSED"] != 0
+    ret.clutchPressed = cp_cbp.vl["CBP_status"]["CLUTCH_PRESSED"] != 0
     ret.seatbeltUnlatched = False
     ret.doorOpen = False
 
