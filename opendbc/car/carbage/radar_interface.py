@@ -41,8 +41,8 @@ class RadarInterface(RadarInterfaceBase):
       errors.append('canError')
 
     radar_status = self.rcp.vl['RadarStatus']
-    if radar_status['sensorBlocked'] or radar_status['shortTermUnavailable'] or radar_status['vehDynamicsError']:
-      errors.append('fault')
+    #if radar_status['sensorBlocked'] or radar_status['shortTermUnavailable'] or radar_status['vehDynamicsError']:
+    #  errors.append('fault')
 
     ret.errors = errors
 
