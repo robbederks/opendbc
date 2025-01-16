@@ -26,9 +26,6 @@ class CarInterface(CarInterfaceBase):
     ret.steerLimitTimer = 0.4
     ret.steerActuatorDelay = 0.12
 
-    # TODO: fix radar interface
-    ret.radarUnavailable = True
-
     ret.steerControlType = structs.CarParams.SteerControlType.torque
     ret.openpilotLongitudinalControl = True
 
