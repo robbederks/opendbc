@@ -1,10 +1,9 @@
-import numpy as np
 import math
-from opendbc.can.packer import CANPacker
+import numpy as np
 from opendbc.car import ACCELERATION_DUE_TO_GRAVITY, Bus, AngleSteeringLimits, DT_CTRL, rate_limit
 from opendbc.car.interfaces import CarControllerBase, ISO_LATERAL_ACCEL
 from opendbc.car.tesla.teslacan import TeslaCAN
-from opendbc.car.tesla.values import CarControllerParams
+from opendbc.car.tesla.values import CarControllerParams, PLATFORM_3Y
 from opendbc.car.vehicle_model import VehicleModel
 
 # limit angle rate to both prevent a fault and for low speed comfort (~12 mph rate down to 0 mph)
@@ -59,8 +58,7 @@ class CarController(CarControllerBase):
   def __init__(self, dbc_names, CP):
     super().__init__(dbc_names, CP)
     self.apply_angle_last = 0
-    self.packer = CANPacker(dbc_names[Bus.party])
-    self.tesla_can = TeslaCAN(self.packer)
+    self.tesla_can = TeslaCAN(dbc_names, is_3Y=CP.carFingerprint in PLATFORM_3Y)
 
     # Vehicle model used for lateral limiting
     self.VM = VehicleModel(get_safety_CP())
